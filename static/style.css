@@ -207,7 +207,7 @@ body {
     text-align: center;
 }
 
-/* --- YENİ SANDIK KUTUSU VE ANİMASYON STİLLERİ --- */
+/* --- SANDIK KUTUSU VE ANİMASYONLARI --- */
 .chests-grid {
     display: flex;
     justify-content: space-between;
@@ -346,9 +346,8 @@ body {
     40% { opacity: 1; transform: scale(1.4) translateY(-12px); }
     100% { opacity: 0; transform: scale(0.6) translateY(-30px); }
 }
-/* -------------------------------------------------- */
 
-/* Ödül Modalı */
+/* --- ÖDÜL MODALI --- */
 .reward-overlay {
     position: fixed; inset: 0;
     background: rgba(45, 52, 54, 0.55);
@@ -434,7 +433,113 @@ body {
 .success-card h2 { color: #00b894; margin-bottom: 6px; font-size: 1.1rem; }
 .success-card p { font-size: 0.8rem; color: #636e72; margin-bottom: 12px; }
 
-.alert-error {
-    background: #ff7675; color: white; padding: 6px;
-    border-radius: 6px; text-align: center; margin-bottom: 8px; font-size: 0.72rem;
+/* --- 1. FOTODAKİ KIRMIZI ÇERÇEVELİ ALAN İÇİN CANLI UYARI BARI --- */
+.main-banner-alert {
+    background: #ffeaa7;
+    border: 2px solid #ff7675;
+    color: #d63031;
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 12px;
+    box-shadow: 0 0 8px rgba(255, 118, 117, 0.4);
+    animation: bannerPulse 1.5s infinite ease-in-out;
+}
+
+@keyframes bannerPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.75; }
+}
+
+/* --- YARI ŞEFFAF HATA MODALI VE UYARI STİLLERİ --- */
+.error-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 20px;
+    animation: fadeInModal 0.25s ease;
+}
+
+@keyframes fadeInModal {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.error-modal-box {
+    position: relative;
+    background: #fff;
+    width: 100%;
+    max-width: 340px;
+    padding: 24px 20px 20px 20px;
+    text-align: center;
+    border-radius: 16px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+}
+
+.error-close-btn {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    background: transparent;
+    border: none;
+    font-size: 1.4rem;
+    color: #636e72;
+    cursor: pointer;
+    font-weight: 700;
+    line-height: 1;
+    transition: color 0.2s;
+}
+
+.error-close-btn:hover {
+    color: #ff7675;
+}
+
+.error-modal-icon {
+    font-size: 2.5rem;
+    margin-bottom: 8px;
+    animation: pulseIcon 1.2s infinite ease-in-out;
+}
+
+@keyframes pulseIcon {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.12); }
+}
+
+.error-modal-title {
+    font-size: 1rem;
+    color: #d63031;
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+
+.error-modal-text {
+    font-size: 0.78rem;
+    color: #2d3436;
+    line-height: 1.4;
+    margin-bottom: 12px;
+}
+
+.error-countdown-box {
+    background: #ffeaa7;
+    color: #d63031;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px dashed #fab1a0;
+}
+
+.field-error-text {
+    color: #ff7675;
+    font-size: 0.68rem;
+    font-weight: 600;
+    margin-top: 3px;
+    display: block;
 }
